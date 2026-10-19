@@ -1,0 +1,106 @@
+[project]
+name = "business-rag-demo"
+version = "0.1.0"
+description = "面向企业知识库的多模态 RAG 问答系统，支持 pgvector、重排、SSE 与 LangGraph 人工审批。"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [
+    { name = "杨磊", email = "3407047940@qq.com" },
+]
+keywords = ["fastapi", "rag", "langgraph", "pgvector", "multimodal", "sse"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Internet :: WWW/HTTP",
+]
+
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.30.0",
+    "gunicorn>=22.0.0",
+    "sqlalchemy[asyncio]>=2.0.30",
+    "asyncpg>=0.29.0",
+    "alembic>=1.13.0",
+    "pydantic>=2.7.0",
+    "pydantic-settings>=2.3.0",
+    "redis[hiredis]>=5.0.0",
+    "arq>=0.25.0",
+    "uvloop>=0.19.0; sys_platform != 'win32'",
+    "fastcrud>=0.12.1",
+    "pyjwt>=2.8.0",
+    "python-multipart>=0.0.9",
+    "email-validator>=2.1.0",
+    "anyio>=4.0.0",
+    "psycopg2-binary>=2.9.9",
+    "pgvector>=0.5.0",
+    "pypdf>=6.17.0",
+    "langchain==0.3.0",
+    "langchain-community==0.3.0",
+    "langchain-core==0.3.0",
+    "langchain-openai>=0.2.1",
+    "dashscope>=1.27.4",
+    "pymupdf>=1.28.2",
+    "oss2>=2.19.1",
+    "langgraph>=0.2.40",
+    "psycopg[binary]>=3.2.0",
+    "psycopg-pool>=3.3.1",
+    "langgraph-checkpoint-postgres>=3.0.5",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-mock>=3.12.0",
+    "pytest-asyncio>=0.23.0",
+    "httpx>=0.27.0",
+    "faker>=24.0.0",
+    "ruff>=0.5.0",
+    "mypy>=1.10.0",
+    "pre-commit>=3.5.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
+
+[tool.hatch.build.targets.wheel.sources]
+"app" = "src/app"
+
+[tool.uv]
+default-groups = ["dev"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "UP", "B", "SIM", "ASYNC"]
+# F821（未定义名称）交给 PyCharm 原生检查处理：
+# 原生检查会提供 “Import name” 自动导入；Ruff 对 F821 只有 noqa/Disable 提示，会把它顶掉。
+ignore = ["F821"]
+
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+filterwarnings = [
+    # FastAPI/Starlette 的 TestClient 在上游迁移到 httpx2 之前会触发该警告，属可忽略的第三方弃用提示。
+    "ignore::DeprecationWarning:starlette",
+    "ignore::DeprecationWarning:fastapi",
+]
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "src.app.*"
+disallow_untyped_defs = true

@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>LangGraph 人机协作审批 · 测试台</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --panel: #171a23;
+    --panel-2: #1f2330;
+    --border: #2b3040;
+    --text: #e6e8ee;
+    --muted: #939aad;
+    --accent: #4f8cff;
+    --green: #2fbf71;
+    --amber: #e0a83c;
+    --red: #e05c5c;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 14px/1.6 "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+  }
+  header {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  header h1 { font-size: 16px; margin: 0; }
+  header .hint { color: var(--muted); font-size: 12px; }
+  .wrap {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    gap: 16px;
+    padding: 16px;
+    align-items: start;
+  }
+  @media (max-width: 900px) { .wrap { grid-template-columns: 1fr; } }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px;
+  }
+  .card h2 {
+    font-size: 13px;
+    margin: 0 0 10px;
+    color: var(--muted);
+    font-weight: 600;
+    letter-spacing: .04em;
+  }
+  label { display: block; font-size: 12px; color: var(--muted); margin: 10px 0 4px; }
+  textarea, input, select {
+    width: 100%;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    padding: 8px 10px;
+    font: inherit;
+    outline: none;
+  }
+  textarea { resize: vertical; min-height: 84px; }
+  textarea:focus, input:focus { border-color: var(--accent); }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  button {
+    border: 1px solid var(--border);
+    background: var(--panel-2);
+    color: var(--text);
+    border-radius: 8px;
+    padding: 9px 14px;
+    font: inherit;
+    cursor: pointer;
+  }
+  button:hover:not(:disabled) { border-color: var(--accent); }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.green { background: var(--green); border-color: var(--green); color: #05230f; font-weight: 600; }
+  button.amber { background: var(--amber); border-color: var(--amber); color: #2a1d02; font-weight: 600; }
+  .actions { display: flex; gap: 8px; margin-top: 12px; }
+  .actions button { flex: 1; }
+  .status { margin-top: 12px; font-size: 12px; color: var(--muted); word-break: break-all; }
+  .status b { color: var(--text); font-weight: 600; }
+
+  #conversation { min-height: 320px; display: flex; flex-direction: column; gap: 12px; }
+  .msg { border-radius: 10px; padding: 10px 12px; border: 1px solid var(--border); }
+  .msg .role { font-size: 11px; color: var(--muted); margin-bottom: 4px; letter-spacing: .05em; }
+  .msg.user { background: #1b2436; align-self: flex-end; max-width: 85%; }
+  .msg.assistant { background: var(--panel-2); }
+  .msg .content { white-space: pre-wrap; word-break: break-word; min-height: 1.2em; }
+  .msg .badge {
+    display: inline-block; font-size: 11px; padding: 1px 8px; border-radius: 999px;
+    margin-left: 8px; border: 1px solid var(--border); color: var(--muted);
+  }
+  .badge.ok { color: var(--green); border-color: var(--green); }
+  .badge.retry { color: var(--amber); border-color: var(--amber); }
+  .badge.err { color: var(--red); border-color: var(--red); }
+  .placeholder { color: var(--muted); }
+
+  #sources { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+  .source { background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 12px; }
+  .source .title { font-weight: 600; margin-bottom: 4px; }
+  .source .meta { color: var(--muted); display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 4px; }
+  .source a { color: var(--accent); }
+  .source details summary { cursor: pointer; color: var(--muted); }
+
+  #approval {
+    margin-top: 12px; border: 1px solid var(--amber); border-radius: 10px; padding: 12px;
+    background: rgba(224, 168, 60, .08);
+  }
+  #wrongOrigin {
+    margin: 12px 16px 0; padding: 12px 14px; border-radius: 10px;
+    border: 1px solid var(--red); background: rgba(224, 92, 92, .12); color: #ffd9d9;
+  }
+  #wrongOrigin code { color: #fff; background: rgba(0,0,0,.3); padding: 1px 6px; border-radius: 4px; }
+  #approval .head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  #approval .head b { color: var(--amber); }
+  #approval .review {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+    padding: 8px 10px; max-height: 200px; overflow: auto; white-space: pre-wrap; margin-bottom: 8px;
+  }
+  #approval .review .lbl { color: var(--muted); font-size: 11px; display: block; margin-bottom: 2px; }
+  .hidden { display: none !important; }
+
+  details.log { margin-top: 16px; }
+  details.log summary { cursor: pointer; color: var(--muted); font-size: 12px; }
+  #log {
+    margin: 8px 0 0; padding: 10px; max-height: 260px; overflow: auto;
+    background: #0b0d12; border: 1px solid var(--border); border-radius: 8px;
+    font: 11px/1.5 Consolas, "Courier New", monospace; color: #a9b4c9; white-space: pre-wrap;
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>LangGraph 人机协作审批 · 测试台</h1>
+  <span class="hint">答案合格直接返回；疑似不合格才暂停，由你点「接受 / 重试」</span>
+</header>
+
+<div id="wrongOrigin" class="hidden">
+  <b>⚠️ 页面打开方式不对，接口会全部 404。</b><br />
+  当前地址是 <code id="currentUrl"></code>，不是 FastAPI 服务地址。
+  请先启动服务，再从 <code id="rightUrl"></code> 打开本页面（不要直接双击 HTML 文件或用编辑器预览）。
+</div>
+
+<div class="wrap">
+  <!-- 左侧：提问与参数 -->
+  <section class="card">
+    <h2>提问</h2>
+    <label for="question">问题</label>
+    <textarea id="question" placeholder="例如：这份文档讲了什么？">这份文档主要讲了什么？</textarea>
+
+    <label for="sourceType">source_type 过滤（可空）</label>
+    <input id="sourceType" placeholder="pdf / pdf_vision / image ..." />
+
+    <div class="row">
+      <div>
+        <label for="topK">top_k</label>
+        <input id="topK" type="number" value="20" min="1" max="100" />
+      </div>
+      <div>
+        <label for="rerankTopN">rerank_top_n</label>
+        <input id="rerankTopN" type="number" value="3" min="1" max="20" />
+      </div>
+    </div>
+
+    <label for="maxAttempts">max_attempts（人工最多重试次数）</label>
+    <input id="maxAttempts" type="number" value="3" min="1" max="10" />
+
+    <div class="actions">
+      <button id="sendBtn" class="primary">发送</button>
+      <button id="clearBtn">清空</button>
+    </div>
+
+    <div class="status">
+      会话 thread_id：<b id="threadId">-</b><br />
+      状态：<b id="state">空闲</b>
+    </div>
+  </section>
+
+  <!-- 右侧：对话、来源、审批面板 -->
+  <section class="card">
+    <h2>对话</h2>
+    <div id="conversation">
+      <div class="placeholder" id="emptyTip">还没有对话，先在左侧输入问题并点「发送」。</div>
+    </div>
+
+    <div id="sources"></div>
+
+    <!-- 审批面板：收到 approval_required 事件时显示 -->
+    <div id="approval" class="hidden">
+      <div class="head">
+        <b>⏸ 等待人工审批</b>
+        <span class="placeholder" id="approvalMeta"></span>
+      </div>
+      <div class="review">
+        <span class="lbl">当前问题</span>
+        <div id="approvalQuestion"></div>
+      </div>
+      <div class="review">
+        <span class="lbl">生成的答案</span>
+        <div id="approvalAnswer"></div>
+      </div>
+      <label for="retryQuestion">重试时使用的问题（可修改，留空则沿用当前问题）</label>
+      <input id="retryQuestion" />
+      <div class="actions">
+        <button id="acceptBtn" class="green">✅ 接受答案</button>
+        <button id="retryBtn" class="amber">🔁 重试</button>
+      </div>
+    </div>
+
+    <details class="log">
+      <summary>SSE 事件日志（调试用）</summary>
+      <pre id="log"></pre>
+    </details>
+  </section>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  const $ = (id) => document.getElementById(id);
+  const els = {
+    question: $("question"), sourceType: $("sourceType"), topK: $("topK"),
+    rerankTopN: $("rerankTopN"), maxAttempts: $("maxAttempts"),
+    sendBtn: $("sendBtn"), clearBtn: $("clearBtn"),
+    conversation: $("conversation"), emptyTip: $("emptyTip"),
+    sources: $("sources"), approval: $("approval"),
+    approvalMeta: $("approvalMeta"), approvalQuestion: $("approvalQuestion"),
+    approvalAnswer: $("approvalAnswer"), retryQuestion: $("retryQuestion"),
+    acceptBtn: $("acceptBtn"), retryBtn: $("retryBtn"),
+    threadId: $("threadId"), state: $("state"), log: $("log"),
+  };
+
+  let threadId = null;        // 当前会话 id（首帧下发）
+  let currentMsg = null;      // 当前正在写入的回答气泡
+  let pendingApproval = null; // 最近一次 approval_required 事件
+  let busy = false;
+
+  // ---------- 打开方式自检 ----------
+  // 若页面是直接双击（file://）或用编辑器预览打开的，/api/* 会全部 404，
+  // 这里探测一次健康检查接口，失败就给出醒目提示，避免误以为是后端坏了。
+  function showWrongOrigin() {
+    $("currentUrl").textContent = location.href;
+    $("rightUrl").textContent = "http://127.0.0.1:8889/api/langgraph/approval/ui（按实际端口调整）";
+    $("wrongOrigin").classList.remove("hidden");
+  }
+  async function checkBackend() {
+    try {
+      const resp = await fetch("/api/v1/health");
+      if (!resp.ok) showWrongOrigin();
+    } catch (e) {
+      showWrongOrigin();
+    }
+  }
+
+  // ---------- 工具 ----------
+  function setState(text) { els.state.textContent = text; }
+  function logEvent(kind, data) {
+    const time = new Date().toLocaleTimeString();
+    const body = typeof data === "string" ? data : JSON.stringify(data);
+    els.log.textContent += `[${time}] ${kind} ${body}\n`;
+    els.log.scrollTop = els.log.scrollHeight;
+  }
+  function setBusy(value) {
+    busy = value;
+    els.sendBtn.disabled = value;
+    els.acceptBtn.disabled = value;
+    els.retryBtn.disabled = value;
+  }
+
+  function addMessage(role, text) {
+    if (els.emptyTip) els.emptyTip.classList.add("hidden");
+    const box = document.createElement("div");
+    box.className = `msg ${role}`;
+    const roleEl = document.createElement("div");
+    roleEl.className = "role";
+    roleEl.textContent = role === "user" ? "用户" : "助手";
+    const content = document.createElement("div");
+    content.className = "content";
+    if (text) content.textContent = text;
+    box.appendChild(roleEl);
+    box.appendChild(content);
+    els.conversation.appendChild(box);
+    els.conversation.scrollTop = els.conversation.scrollHeight;
+    return { box, content, roleEl };
+  }
+
+  function setBadge(msg, text, cls) {
+    if (!msg) return;
+    let badge = msg.roleEl.querySelector(".badge");
+    if (!badge) {
+      badge = document.createElement("span");
+      badge.className = "badge";
+      msg.roleEl.appendChild(badge);
+    }
+    badge.textContent = text;
+    badge.className = `badge ${cls || ""}`;
+  }
+
+  function renderSources(sources) {
+    els.sources.innerHTML = "";
+    (sources || []).forEach((s, i) => {
+      const card = document.createElement("div");
+      card.className = "source";
+      const title = document.createElement("div");
+      title.className = "title";
+      title.textContent = `${i + 1}. ${s.title || "(无标题)"}`;
+      card.appendChild(title);
+
+      const meta = document.createElement("div");
+      meta.className = "meta";
+      if (s.similarity != null) meta.appendChild(span(`相似度 ${Number(s.similarity).toFixed(4)}`));
+      if (s.relevance_score != null) meta.appendChild(span(`重排分 ${Number(s.relevance_score).toFixed(4)}`));
+      if (s.source_type) meta.appendChild(span(`类型 ${s.source_type}`));
+      if (s.file_url) {
+        const a = document.createElement("a");
+        a.href = s.file_url; a.target = "_blank"; a.rel = "noopener"; a.textContent = "打开原文件";
+        meta.appendChild(a);
+      }
+      card.appendChild(meta);
+
+      if (s.content) {
+        const d = document.createElement("details");
+        const sum = document.createElement("summary");
+        sum.textContent = "查看片段";
+        const p = document.createElement("div");
+        p.textContent = s.content;
+        d.appendChild(sum); d.appendChild(p);
+        card.appendChild(d);
+      }
+      els.sources.appendChild(card);
+    });
+  }
+  function span(text) { const s = document.createElement("span"); s.textContent = text; return s; }
+
+  // ---------- SSE 读取（fetch + ReadableStream，POST 也能流式） ----------
+  async function streamRequest(url, body, onEvent) {
+    const resp = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!resp.ok) {
+      let detail = resp.statusText;
+      try { detail = (await resp.json()).detail || detail; } catch (e) { /* ignore */ }
+      const hint = resp.status === 404
+        ? "（路由不存在：请确认服务已用最新代码重启，且本页面是从 FastAPI 服务地址打开的）"
+        : "";
+      throw new Error(`HTTP ${resp.status} - ${detail}｜请求地址 ${url} ${hint}`);
+    }
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder("utf-8");
+    let buffer = "";
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      let idx;
+      while ((idx = buffer.indexOf("\n\n")) >= 0) {
+        const raw = buffer.slice(0, idx);
+        buffer = buffer.slice(idx + 2);
+        const line = raw.split("\n").find((l) => l.startsWith("data:"));
+        if (!line) continue;
+        const payload = line.slice(5).trim();
+        if (payload === "[DONE]") { onEvent({ __done: true }); continue; }
+        try { onEvent(JSON.parse(payload)); } catch (e) { logEvent("bad-json", payload); }
+      }
+    }
+  }
+
+  // ---------- 事件处理 ----------
+  function handleEvent(ev) {
+    logEvent("event", ev);
+    if (ev.__done) { setState(pendingApproval ? "等待审批" : "空闲"); return; }
+    if (ev.thread_id) { threadId = ev.thread_id; els.threadId.textContent = threadId; }
+    if (ev.sources) renderSources(ev.sources);
+    if (typeof ev.content === "string" && currentMsg) {
+      currentMsg.content.textContent += ev.content;
+      els.conversation.scrollTop = els.conversation.scrollHeight;
+    }
+    if (ev.error) {
+      if (currentMsg) setBadge(currentMsg, "出错", "err");
+      addMessage("assistant", `⚠️ ${ev.error}`);
+    }
+    if (ev.approval_required) { pendingApproval = ev; showApproval(ev); }
+  }
+
+  function showApproval(ev) {
+    els.approval.classList.remove("hidden");
+    const attempt = ev.attempt || 0;
+    const max = ev.max_attempts || 0;
+    els.approvalMeta.textContent = `已重试 ${attempt} / ${max} 次`;
+    els.approvalQuestion.textContent = ev.question || "";
+    els.approvalAnswer.textContent = ev.answer || "(空答案)";
+    els.retryQuestion.value = ev.question || "";
+    els.retryBtn.disabled = attempt >= max;
+    els.retryBtn.title = attempt >= max ? "已达最大重试次数" : "";
+    setState("等待审批");
+  }
+  function hideApproval() {
+    els.approval.classList.add("hidden");
+    els.approvalMeta.textContent = "";
+  }
+
+  // ---------- 动作 ----------
+  async function sendQuestion() {
+    if (busy) return;
+    const question = els.question.value.trim();
+    if (!question) { alert("请先输入问题"); return; }
+    pendingApproval = null;
+    hideApproval();
+    els.sources.innerHTML = "";
+    els.log.textContent = "";
+    addMessage("user", question);
+    currentMsg = addMessage("assistant", "");
+    setState("检索并生成中…");
+    setBusy(true);
+    try {
+      await streamRequest("/api/langgraph/approval/ask", {
+        question,
+        source_type: els.sourceType.value.trim() || null,
+        top_k: Number(els.topK.value),
+        rerank_top_n: Number(els.rerankTopN.value),
+        max_attempts: Number(els.maxAttempts.value),
+      }, handleEvent);
+    } catch (e) {
+      logEvent("error", e.message);
+      addMessage("assistant", `⚠️ ${e.message}`);
+      setState("出错");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function submitDecision(action) {
+    if (busy || !pendingApproval) return;
+    const approval = pendingApproval;
+    const edited = els.retryQuestion.value.trim();
+    pendingApproval = null;
+    hideApproval();
+    if (action === "accept") {
+      setBadge(currentMsg, "已接受", "ok");
+    } else {
+      setBadge(currentMsg, "已重试", "retry");
+      currentMsg = addMessage("assistant", "");
+    }
+    setState(action === "accept" ? "已接受，正在结束…" : "重试中…");
+    setBusy(true);
+    try {
+      await streamRequest("/api/langgraph/approval/resume", {
+        thread_id: threadId,
+        action,
+        question: action === "retry" && edited ? edited : null,
+      }, handleEvent);
+    } catch (e) {
+      logEvent("error", e.message);
+      addMessage("assistant", `⚠️ ${e.message}`);
+      setState("出错");
+    } finally {
+      setBusy(false);
+      if (!pendingApproval) setState("空闲");
+    }
+  }
+
+  els.sendBtn.addEventListener("click", sendQuestion);
+  els.acceptBtn.addEventListener("click", () => submitDecision("accept"));
+  els.retryBtn.addEventListener("click", () => submitDecision("retry"));
+  els.clearBtn.addEventListener("click", () => {
+    els.conversation.innerHTML = '<div class="placeholder" id="emptyTip">还没有对话，先在左侧输入问题并点「发送」。</div>';
+    els.emptyTip = $("emptyTip");
+    els.sources.innerHTML = "";
+    els.log.textContent = "";
+    hideApproval();
+    currentMsg = null; pendingApproval = null; threadId = null;
+    els.threadId.textContent = "-";
+    setState("空闲");
+  });
+
+  checkBackend();
+})();
+</script>
+</body>
+</html>
